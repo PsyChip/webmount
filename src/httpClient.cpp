@@ -161,7 +161,7 @@ HttpClient::HttpClient() : cancelled(CreateEventW(nullptr, TRUE, FALSE, nullptr)
 HttpClient::~HttpClient() { if (session) WinHttpCloseHandle(session); }
 Result HttpClient::Initialize() {
     if (!cancelled || !slots) return LastError(L"Cannot allocate HTTP synchronization handles");
-    session = WinHttpOpen(L"webmount/0.1", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, WINHTTP_FLAG_ASYNC);
+    session = WinHttpOpen(L"webmount/0.2.0", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, WINHTTP_FLAG_ASYNC);
     if (!session) return LastError(L"Cannot initialize WinHTTP");
     if (!WinHttpSetTimeouts(session, 4000, 4000, 10000, 10000)) return LastError(L"Cannot configure HTTP timeouts");
     return {};

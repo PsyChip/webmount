@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(webmount VERSION 0.1.0 LANGUAGES CXX RC)
+project(webmount VERSION 0.2.0 LANGUAGES CXX RC)
 if(NOT WIN32 OR NOT MSVC OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
     message(FATAL_ERROR "webmount requires MSVC targeting Windows x64")
 endif()

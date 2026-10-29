@@ -29,11 +29,11 @@ NTSTATUS DriveMount::CopySecurity(PSECURITY_DESCRIPTOR target, SIZE_T* size) {
     memcpy(target, security, needed);
     return STATUS_SUCCESS;
 }
-NTSTATUS DriveMount::VolumeInfo(FSP_FILE_SYSTEM*, FSP_FSCTL_VOLUME_INFO* info) {
+NTSTATUS DriveMount::VolumeInfo(FSP_FILE_SYSTEM* value, FSP_FSCTL_VOLUME_INFO* info) {
     *info = {};
-    constexpr wchar_t label[] = L"WebMount";
-    info->VolumeLabelLength = sizeof(label) - sizeof(wchar_t);
-    memcpy(info->VolumeLabel, label, sizeof(label));
+    const auto& label = Self(value).volumeLabel;
+    info->VolumeLabelLength = static_cast<UINT16>(label.size() * sizeof(wchar_t));
+    memcpy(info->VolumeLabel, label.data(), info->VolumeLabelLength);
     return STATUS_SUCCESS;
 }
 NTSTATUS DriveMount::SecurityName(FSP_FILE_SYSTEM* value, PWSTR name, PUINT32 attributes, PSECURITY_DESCRIPTOR target, SIZE_T* size) {
@@ -152,9 +152,15 @@ VOID DriveMount::DispatcherStopped(FSP_FILE_SYSTEM* value, BOOLEAN normally) {
         self.control.RequestStop();
     }
 }
-Result DriveMount::Start(wchar_t requested) {
+Result DriveMount::Start(wchar_t requested, const std::wstring& url) {
     auto result = CheckLetter(requested);
     if (!result) return result;
+    UrlParts parts;
+    result = SplitUrl(url, parts);
+    if (!result) return result;
+    FSP_FSCTL_VOLUME_INFO info{};
+    volumeLabel = parts.host.substr(0, std::size(info.VolumeLabel));
+    if (!volumeLabel.empty() && volumeLabel.back() >= 0xd800 && volumeLabel.back() <= 0xdbff) volumeLabel.pop_back();
     result = LoadRuntime();
     if (!result) return result;
     std::wstring sid;

@@ -2,6 +2,8 @@
 #include "startupMount.h"
 #include <fcntl.h>
 #include <io.h>
+#include <objbase.h>
+#include <shellapi.h>
 
 namespace webmount {
 namespace {
@@ -91,7 +93,7 @@ Result ParseArguments(int count, wchar_t** values, Arguments& arguments) {
     }
 }
 void Help() {
-    std::wcout << L"webmount 0.1.0 - read-only HTTP directory drive mounter\n"
+    std::wcout << L"webmount 0.2.0 - read-only HTTP directory drive mounter\n"
         L"Curated by Psychip root@psychip.net Oct 2026\n\n"
         L"Usage:\n"
         L"  webmount <site url>               Mount using the first free letter\n"
@@ -114,7 +116,9 @@ void Help() {
         L"The first mount installs the private runtime with a UAC prompt.\n"
         L"Read-only; immediate root mount; one-level directory prefetch.\n"
         L"Browsing a folder prefetches its child listings, never recursively.\n"
-        L"Foreground console keeps one updated row per file or folder.\n"
+        L"Foreground activity appends to a timestamped scrolling log.\n"
+        L"Drive labels use the supplied site hostname, limited to 32 characters.\n"
+        L"Manual mounts open in Explorer when ready; sign-in restoration stays silent.\n"
         L"Listings expire after 60 seconds; file data cache is 64 MiB.\n"
         L"Servers without byte ranges support whole files up to 64 MiB.\n"
         L"Formats: Apache/nginx HTML, IIS, lighttpd, LiteSpeed, nginx fancyindex,\n"
@@ -129,6 +133,14 @@ struct MountLocks {
     ~MountLocks() { Release(); }
     void Release() { UnlockStartup(startup); UnlockRuntime(runtime); }
 };
+Result OpenDrive(wchar_t letter) {
+    HRESULT status = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+    if (FAILED(status) && status != RPC_E_CHANGED_MODE) return Fail(static_cast<DWORD>(status), L"Drive mounted, but Explorer initialization failed");
+    std::wstring path{letter, L':', L'\\'};
+    auto opened = reinterpret_cast<INT_PTR>(ShellExecuteW(nullptr, L"open", path.c_str(), nullptr, nullptr, SW_SHOWNORMAL));
+    if (SUCCEEDED(status)) CoUninitialize();
+    return opened > 32 ? Result{} : Fail(static_cast<DWORD>(opened), L"Drive mounted, but Explorer could not open " + path);
+}
 Result MountOnce(Arguments& arguments, ULONGLONG deadline = 0) {
     auto result = CheckLetter(arguments.letter);
     if (!result) return result;
@@ -173,7 +185,7 @@ Result MountOnce(Arguments& arguments, ULONGLONG deadline = 0) {
         if (!result) return result;
     }
     if (WaitForSingleObject(control.StopEvent(), 0) != WAIT_TIMEOUT) return Fail(ERROR_OPERATION_ABORTED, L"Mount startup cancelled");
-    result = drive.Start(arguments.letter);
+    result = drive.Start(arguments.letter, arguments.url);
     if (!result) { drive.Stop(); return result; }
     mounted = true;
     if (arguments.persist) {
@@ -182,6 +194,10 @@ Result MountOnce(Arguments& arguments, ULONGLONG deadline = 0) {
         if (!result) { drive.Stop(); return result; }
     }
     locks.Release();
+    if (!arguments.restore) {
+        auto opened = OpenDrive(drive.Letter());
+        if (!opened) LogError(opened);
+    }
     cache.StartPrefetch();
     if (arguments.ready) {
         ReportReady(arguments.ready, ERROR_SUCCESS, drive.Letter());

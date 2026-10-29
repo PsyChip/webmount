@@ -9,7 +9,7 @@ class DriveMount {
 public:
     DriveMount(MountCache& cache, MountControl& control);
     ~DriveMount();
-    Result Start(wchar_t requested = 0);
+    Result Start(wchar_t requested, const std::wstring& url);
     void Stop();
     wchar_t Letter() const { return letter; }
 private:
@@ -38,6 +38,7 @@ private:
     FSP_FILE_SYSTEM* fileSystem = nullptr;
     FSP_FILE_SYSTEM_INTERFACE interface{};
     PSECURITY_DESCRIPTOR security = nullptr;
+    std::wstring volumeLabel;
     wchar_t letter = 0;
 };
 }
