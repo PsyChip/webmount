@@ -1,3 +1,5 @@
+![webmount screenshot](Screenshot%202026-10-29%20032636.jpg)
+
 # webmount
 
 webmount is a read-only HTTP directory mounter for Windows. `webmount` exposes
