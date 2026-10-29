@@ -1,133 +1,126 @@
 # webmount
 
-webmount mounts a web directory as a read-only Windows drive. Browse files in
-Explorer, open them in your apps, or copy them to your PC. Files download as you
-read them.
-
-[Download for Windows x64](https://github.com/PsyChip/webmount/releases/download/v0.2.0/webmount-0.2.0-windows-x64.zip),
-extract the ZIP, and open PowerShell in that folder. Requires Windows 10 or 11.
+webmount is a read-only HTTP directory mounter for Windows. `webmount` exposes
+remote files as a drive; file data is downloaded as applications read it.
 
 ```powershell
-.\webmount.exe W: "https://example.com/files/" --detach
+webmount "https://example.com/files/"
+webmount W: "https://example.com/files/" --detach
 ```
 
-Replace the example URL with a directory listing. The first mount asks for
-administrator approval to install the bundled driver. No separate WinFsp
-installation is needed.
+Use a directory-listing URL. Without a letter, webmount selects the first free
+letter from D: through Z:. Explicit letters must be free.
 
-When ready, the drive opens in Explorer. Its label is the site's hostname:
-`https://3.onj.me/phonetones/unzipped/BlackBerry/` becomes `3.onj.me`.
-Labels are limited to 32 characters.
+Manual mounts open in Explorer when ready. The drive label is the URL's hostname,
+limited to 32 characters. Foreground mounts keep a rolling log; Ctrl+C unmounts
+the drive.
 
-## Commands
+## Download
 
-| Command | Action |
-| --- | --- |
-| `webmount <url>` | Mount on the first free drive letter, D: through Z: |
-| `webmount W: <url>` | Mount on W: |
-| `webmount W: <url> --detach` | Keep the drive mounted after closing the terminal |
-| `webmount W: <url> --persist` | Mount in the background and restore at sign-in |
-| `webmount --eject W:` | Disconnect W: and remove its saved startup entry |
-| `webmount --eject` | Disconnect all your webmount drives and remove saved entries |
-| `webmount --help` | Show help |
+[Windows x64 release](https://github.com/PsyChip/webmount/releases/download/v0.2.0/webmount-0.2.0-windows-x64.zip)
 
-Use `webmount` if its folder is on your `PATH`; otherwise use `.\webmount.exe`
-from the extracted folder. Quote URLs and choose an unused drive letter.
+Extract the ZIP and add its folder to `PATH`, or run `.\webmount.exe` from that
+folder. Requires Windows 10 or 11.
 
-Without `--detach`, the terminal shows a rolling, timestamped log. Keep it open
-while using the drive; **Ctrl+C** unmounts it. `--background` is an alias for
-`--detach`. Running without arguments shows help.
+The first mount installs the bundled WinFsp runtime with administrator approval.
+Normal mounting does not require an elevated terminal.
 
-## Persistence
+## Supported listings
 
-```powershell
-.\webmount.exe W: "https://example.com/files/" --persist
-```
-
-`--persist` includes background mode. Keep the executable at the same path.
-If you move it, eject the drive and register it again from the new location.
-
-Saved drives return after your Windows sign-in without opening Explorer.
-Restoration retries temporary failures for up to five minutes and never replaces
-an occupied drive. Failed attempts keep the saved entry for the next sign-in.
-Use `--eject W:` to remove it, even when the drive is offline.
-
-## Servers
-
-| Format | Supported listings |
-| --- | --- |
+| Format | Servers |
+|---|---|
 | HTML | Apache, nginx, IIS, lighttpd, LiteSpeed, nginx fancyindex |
 | JSON | Caddy, nginx |
 | XML | nginx |
 
-Detection is automatic. Use a directory-listing URL, not a login page or a link
-to a single file. WebDAV and embedded usernames/passwords are not supported.
-Remove query parameters and `#fragments` from the supplied URL.
+Detection is automatic. Login pages, WebDAV, direct file links, and embedded
+credentials are not supported. Supply the directory URL without query parameters
+or fragments. Bare hosts use HTTP; use `https://` for HTTPS.
 
-Use `https://` for encrypted connections. Bare hostnames use HTTP. HTTPS cannot
-redirect to HTTP; later redirects must stay inside the mounted directory tree.
+## Commands
 
-## Limits
+- `--detach` runs the mount in the background. `--background` is an alias.
+- `--persist` mounts in the background and saves the drive for sign-in.
+- `--eject W:` unmounts W: and removes its saved startup entry.
+- `--eject` unmounts all drives owned by the current user and removes saved entries.
+- `--install` installs the private WinFsp runtime.
+- `--uninstall` removes the private runtime and the current user's saved entries.
+- `--help` prints usage. Running without arguments does the same.
 
-- Read-only. Save edited files to a local drive; uploads, deletes, and renames
-  are not supported.
-- Network access is required. This is not an offline copy.
-- Files larger than 64 MiB need server support for HTTP byte ranges. Without
-  ranges, whole files up to 64 MiB can be read. The server must report file sizes.
-- Listings and file metadata are cached for 60 seconds. Listed sizes may be
-  approximate until a file is opened.
-- Browsing prefetches child listings, not every folder or file. The file-data
-  cache is 64 MiB; total memory use can be higher. Each listing is limited to
-  16 MiB and 100,000 entries.
-- Names Windows cannot use are escaped. Names that differ only by case get
-  suffixes so both remain accessible.
-- Explorer may show "0 bytes free of 0 bytes." The server does not report disk
-  capacity; this does not mean the files are empty.
+Install and uninstall request administrator approval. Uninstall stops webmount
+mounts across users, but leaves other users' saved entries and separately
+installed WinFsp alone. Locked runtime files may require a restart.
 
-If a file changes while open, close and reopen it. Change detection depends on
-metadata supplied by the server. For connection errors, run without `--detach`
-to see the log. If persistence rejects a long command, use a shorter executable
-path or URL.
-
-## Driver
-
-The driver installs on first use. You can also install or remove it explicitly:
+## Persistence
 
 ```powershell
-.\webmount.exe --install
-.\webmount.exe --uninstall
+webmount W: "https://example.com/files/" --persist
 ```
 
-Both commands request administrator approval. Uninstall stops webmount drives
-across users and removes your saved entries. Other users' saved entries and a
-separate WinFsp installation are left alone. Close apps using the drives first;
-locked files may require a restart. You can then delete the webmount folder.
+`--persist` includes background mode and saves the assigned letter. Keep the
+executable at its registered path. After moving it, eject and register the mount
+again from the new location.
+
+Saved mounts start after Windows sign-in without opening Explorer. Temporary
+failures are retried for up to five minutes; occupied drives are never replaced.
+Failed restoration keeps the registration. `--eject` removes saved entries even
+when their drives are offline.
+
+## File access
+
+The drive is read-only. Files can be opened or copied locally, but not uploaded,
+renamed, or deleted. Network access is required.
+
+Listings and file metadata expire after 60 seconds. Browsing prefetches immediate
+child listings, not the entire tree. The file-data cache is 64 MiB; total process
+memory can be higher. Listings are limited to 16 MiB and 100,000 entries.
+
+Files larger than 64 MiB require HTTP byte-range support. Without it, whole files
+up to 64 MiB are supported. The server must supply exact file sizes. If a remote
+file changes while open, reopen it; change detection depends on server metadata.
+
+Names Windows cannot represent are escaped. Case-insensitive name collisions get
+suffixes. Explorer may show "0 bytes free of 0 bytes" because the directory has
+no reported disk capacity.
 
 ## Build
 
 Requires CMake 3.24+, Visual Studio 2022 C++ tools, and a Windows SDK.
-WinFsp headers and runtime binaries are included.
 
 ```powershell
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64
 cmake --build build --config Release
 ```
 
-Output: `build/bin/Release/webmount.exe`. Uses C++20 and the static MSVC runtime.
+The executable is written to `build/bin/Release/webmount.exe`. webmount uses
+C++20 and links the MSVC runtime statically. WinFsp headers and runtime binaries
+are included.
+
+## Command-line reference
+
+```powershell
+webmount W: "https://example.com/files/"
+webmount W: "https://example.com/files/" --detach
+webmount W: "https://example.com/files/" --persist
+webmount --eject W:
+webmount --eject
+webmount --install
+webmount --uninstall
+webmount --help
+```
 
 ## License
 
-webmount is licensed under **GPL-3.0-only**. See [LICENSE](LICENSE).
+webmount is licensed under GPL-3.0-only. See [LICENSE](LICENSE).
 
 WinFsp - Windows File System Proxy, Copyright (C) Bill Zissimopoulos
 
-WinFsp repository: <https://github.com/winfsp/winfsp>
+<https://github.com/winfsp/winfsp>
 
 See [WinFsp's license](vendor/winfsp/License.txt) and
-[third-party notices](THIRD_PARTY_NOTICES.md) for its terms and source links.
-Redistributed binaries must include the licenses and notices and provide access
-to corresponding source.
+[third-party notices](THIRD_PARTY_NOTICES.md) for terms and corresponding source.
+Include the licenses, notices, and source access when redistributing binaries.
 
 ---
 
-Curated by Psychip — October 2026.
+*Created by [@PsyChip](mailto:root@psychip.net) — October 2026*
